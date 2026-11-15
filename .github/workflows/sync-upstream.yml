@@ -1,0 +1,37 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diffical
+          fetch-depth: 0
+
+      - name: Rebase diffical onto openutau/master
+        run: |
+          git config user.name "diffical-bot"
+          git config user.email "diffical-bot@users.noreply.github.com"
+          git remote add upstream https://github.com/openutau/OpenUtau.git
+          git fetch upstream master
+          git push origin upstream/master:refs/heads/upstream --force
+          if git rebase upstream/master; then
+            git push origin diffical
+          else
+            git rebase --abort
+            echo "::error::Rebase conflict: openutau/master changed files touched by the Diffical patch. Resolve manually."
+            exit 1
+          fi

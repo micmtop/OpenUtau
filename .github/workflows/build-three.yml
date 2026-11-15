@@ -1,0 +1,52 @@
+name: Build (win/osx/linux)
+
+on:
+  push:
+    branches: [diffical]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: win-x64,   rid: win-x64,   os: win,   runs-on: windows-latest }
+          - { name: osx-arm64, rid: osx-arm64, os: osx,   runs-on: macos-latest }
+          - { name: linux-x64, rid: linux-x64, os: linux, runs-on: ubuntu-latest }
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diffical
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore OpenUtau -r ${{ matrix.rid }}
+
+      - name: Publish (Windows/Linux)
+        if: ${{ matrix.os != 'osx' }}
+        run: dotnet publish OpenUtau -c Release -r ${{ matrix.rid }} --self-contained true -o bin/${{ matrix.name }}/
+
+      - name: Publish (macOS app bundle)
+        if: ${{ matrix.os == 'osx' }}
+        run: >
+          dotnet msbuild OpenUtau -t:BundleApp -p:Configuration=Release
+          -p:RuntimeIdentifier=${{ matrix.rid }} -p:UseAppHost=true
+          -p:SelfContained=true -p:OutputPath=../bin/${{ matrix.name }}/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-${{ matrix.name }}
+          path: bin/${{ matrix.name }}/
+          if-no-files-found: error
