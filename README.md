@@ -1,5 +1,5 @@
 
-# OpenUtau
+# OpenUtau for Diffical
 
 OpenUtau is a free, open-source editor made for the UTAU community.
 
