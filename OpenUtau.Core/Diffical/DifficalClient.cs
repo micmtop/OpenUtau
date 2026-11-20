@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -106,7 +107,13 @@ namespace OpenUtau.Core.Diffical {
         private void StartServer() {
             string backendPath = FindBackendPath();
             if (backendPath == null) {
-                Log.Error("找不到 Diffical Python 后端");
+                Log.Error("找不到 Diffical 后端");
+                return;
+            }
+
+            string rustBinary = FindRustBackendBinary(backendPath);
+            if (rustBinary != null) {
+                StartRustServer(rustBinary, backendPath);
                 return;
             }
 
@@ -181,6 +188,12 @@ namespace OpenUtau.Core.Diffical {
 
             string rootPath = PathManager.Inst.RootPath;
 
+            // One-click package layout: backend lives next to the app binary.
+            foreach (var bundled in BundledBackendCandidates()) {
+                if (!string.IsNullOrEmpty(bundled) && File.Exists(Path.Combine(bundled, "server.py")))
+                    return bundled;
+            }
+
             string[] candidates = {
                 Path.Combine(rootPath, "diffical", "backend"),
                 Path.Combine(rootPath, "backend"),
@@ -253,6 +266,65 @@ namespace OpenUtau.Core.Diffical {
             }
 
             return "python3";
+        }
+
+        static IEnumerable<string> BundledBackendCandidates() {
+            string baseDir = AppContext.BaseDirectory;
+            yield return Path.Combine(baseDir, "Diffical", "backend");
+            yield return Path.Combine(baseDir, "..", "Resources", "Diffical", "backend");
+            yield return Path.Combine(baseDir, "..", "..", "Resources", "Diffical", "backend");
+        }
+
+        static string FindRustBackendBinary(string backendPath) {
+            string dir = Directory.GetParent(backendPath)?.FullName ?? backendPath;
+            string name = OperatingSystem.IsWindows() ? "diffical-backend.exe" : "diffical-backend";
+            foreach (var candidate in new[] {
+                Path.Combine(backendPath, name), Path.Combine(dir, name) }) {
+                if (File.Exists(candidate)) return candidate;
+            }
+            return null;
+        }
+
+        void StartRustServer(string binary, string backendPath) {
+            string root = Directory.GetParent(backendPath)?.FullName ?? backendPath;
+            string assembler = Environment.GetEnvironmentVariable("DIFFICAL_ASSEMBLER")
+                ?? Path.Combine(root, "models", "assembler.onnx");
+            string vocoder = Environment.GetEnvironmentVariable("DIFFICAL_VOCODER")
+                ?? Path.Combine(root, "models", "vocoder.onnx");
+            int port = endpoint.Port > 0 ? endpoint.Port : 8573;
+            var psi = new ProcessStartInfo {
+                FileName = binary,
+                Arguments = $"serve --host 127.0.0.1 --port {port} --assembler \"{assembler}\" --vocoder \"{vocoder}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WorkingDirectory = root,
+            };
+            try {
+                serverProcess = Process.Start(psi);
+                if (serverProcess != null) {
+                    Log.Information($"Diffical Rust 后端已启动 (PID={serverProcess.Id})");
+                    _ = Task.Run(() => {
+                        try {
+                            while (!serverProcess.StandardOutput.EndOfStream) {
+                                var line = serverProcess.StandardOutput.ReadLine();
+                                if (!string.IsNullOrEmpty(line)) Log.Information($"[Diffical] {line}");
+                            }
+                        } catch { }
+                    });
+                    _ = Task.Run(() => {
+                        try {
+                            while (!serverProcess.StandardError.EndOfStream) {
+                                var line = serverProcess.StandardError.ReadLine();
+                                if (!string.IsNullOrEmpty(line)) Log.Error($"[Diffical] {line}");
+                            }
+                        } catch { }
+                    });
+                }
+            } catch (Exception e) {
+                Log.Error(e, "启动 Diffical Rust 后端失败");
+            }
         }
 
         /// <summary>
