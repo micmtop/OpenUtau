@@ -182,7 +182,7 @@ namespace OpenUtau.Core.Diffical {
             // 5. 从可执行文件目录向上查找 diffical/backend 或 backend（开发环境）
 
             string envPath = Environment.GetEnvironmentVariable("DIFFICAL_BACKEND_PATH") ?? "";
-            if (!string.IsNullOrEmpty(envPath) && File.Exists(Path.Combine(envPath, "server.py"))) {
+            if (!string.IsNullOrEmpty(envPath) && LooksLikeBackend(envPath)) {
                 return envPath;
             }
 
@@ -190,7 +190,7 @@ namespace OpenUtau.Core.Diffical {
 
             // One-click package layout: backend lives next to the app binary.
             foreach (var bundled in BundledBackendCandidates()) {
-                if (!string.IsNullOrEmpty(bundled) && File.Exists(Path.Combine(bundled, "server.py")))
+                if (!string.IsNullOrEmpty(bundled) && LooksLikeBackend(bundled))
                     return bundled;
             }
 
@@ -203,7 +203,7 @@ namespace OpenUtau.Core.Diffical {
             };
 
             foreach (var path in candidates) {
-                if (!string.IsNullOrEmpty(path) && File.Exists(Path.Combine(path, "server.py"))) {
+                if (!string.IsNullOrEmpty(path) && LooksLikeBackend(path)) {
                     return path;
                 }
             }
@@ -266,6 +266,12 @@ namespace OpenUtau.Core.Diffical {
             }
 
             return "python3";
+        }
+
+        static bool LooksLikeBackend(string dir) {
+            if (File.Exists(Path.Combine(dir, "server.py"))) return true;
+            string name = OperatingSystem.IsWindows() ? "diffical-backend.exe" : "diffical-backend";
+            return File.Exists(Path.Combine(dir, name));
         }
 
         static IEnumerable<string> BundledBackendCandidates() {

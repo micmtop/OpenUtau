@@ -1,0 +1,106 @@
+name: Package (one-click bundles)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: win-x64,   rid: win-x64,   os: windows-latest }
+          - { name: osx-arm64, rid: osx-arm64, os: macos-latest }
+          - { name: linux-x64, rid: linux-x64, os: ubuntu-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diffical
+
+      - name: Checkout engine
+        uses: actions/checkout@v4
+        with:
+          repository: micmtop/diffical
+          ref: master
+          path: engine
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build engine (release)
+        shell: bash
+        run: cargo build --release --manifest-path engine/rust/Cargo.toml
+
+      - name: Fetch models
+        shell: bash
+        run: |
+          set -e
+          mkdir -p models
+          curl -fL --retry 3 -o models/assembler.onnx \
+            https://github.com/micmtop/diffical/releases/download/weights-v1/pointer_fix_single.onnx
+          VOC=pc_nsf_hifigan_44.1k_hop512_128bin_2025.02/model.onnx
+          curl -fL --retry 3 -o models/vocoder.onnx \
+            "https://huggingface.co/openvpi/pc-nsf-hifigan/resolve/main/$VOC" \
+          || curl -fL --retry 3 -o models/vocoder.onnx \
+            "https://hf-mirror.com/openvpi/pc-nsf-hifigan/resolve/main/$VOC"
+
+      - name: Publish OpenUtau (win/linux)
+        if: ${{ matrix.os != 'macos-latest' }}
+        shell: bash
+        run: dotnet publish OpenUtau -c Release -r ${{ matrix.rid }} --self-contained true -o out/${{ matrix.name }}
+
+      - name: Publish OpenUtau (macOS app bundle)
+        if: ${{ matrix.os == 'macos-latest' }}
+        shell: bash
+        run: >
+          dotnet msbuild OpenUtau -t:BundleApp -p:Configuration=Release
+          -p:RuntimeIdentifier=${{ matrix.rid }} -p:UseAppHost=true
+          -p:SelfContained=true -p:OutputPath=../out/${{ matrix.name }}/
+
+      - name: Assemble bundle
+        shell: bash
+        run: |
+          set -e
+          BIN=engine/rust/target/release/diffical-cli
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            ROOT="out/${{ matrix.name }}/publish/OpenUtau.app/Contents/Resources/Diffical"
+          else
+            ROOT="out/${{ matrix.name }}/Diffical"
+          fi
+          mkdir -p "$ROOT/backend" "$ROOT/models"
+          cp "$BIN" "$ROOT/backend/diffical-backend"
+          cp models/assembler.onnx models/vocoder.onnx "$ROOT/models/"
+          cp engine/LICENSE engine/NOTICE "$ROOT/" || true
+          cp engine/LICENSE-WEIGHTS.md "$ROOT/" || true
+          chmod +x "$ROOT/backend/diffical-backend" || true
+
+      - name: Package
+        shell: bash
+        run: |
+          set -e
+          mkdir -p dist
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            ditto -c -k --sequesterRsrc --keepParent \
+              "out/${{ matrix.name }}/publish/OpenUtau.app" \
+              "dist/OpenUtau-Diffical-${{ matrix.name }}.zip"
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a "dist/OpenUtau-Diffical-${{ matrix.name }}.zip" "out/${{ matrix.name }}/*" >/dev/null
+          else
+            tar -C "out/${{ matrix.name }}" -czf "dist/OpenUtau-Diffical-${{ matrix.name }}.tar.gz" .
+          fi
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-Diffical-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
