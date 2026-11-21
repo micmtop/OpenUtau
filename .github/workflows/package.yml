@@ -2,6 +2,11 @@ name: Package
 
 on:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a GitHub release from the artifacts'
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -145,3 +150,52 @@ jobs:
           name: OpenUtau-Diffical-${{ matrix.name }}
           path: dist/*
           if-no-files-found: error
+
+  release:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/') || inputs.release == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten
+        run: |
+          mkdir -p out
+          find dist -type f -exec cp {} out/ \;
+          ls -lh out
+
+      - name: Checkout engine for .oudep builder
+        uses: actions/checkout@v4
+        with:
+          repository: micmtop/diffical
+          ref: master
+          path: engine
+
+      - name: Build model .oudep
+        run: |
+          set -e
+          mkdir -p m
+          curl -fL --retry 3 -o m/assembler.onnx https://github.com/micmtop/diffical/releases/download/weights-v1/pointer_fix_single.onnx
+          curl -fL --retry 3 -o m/vocoder.onnx https://github.com/micmtop/diffical/releases/download/weights-v1/model.onnx
+          curl -fL --retry 3 -o m/hnsep.onnx https://github.com/micmtop/diffical/releases/download/weights-v1/hnsep.onnx
+          python engine/tools/make_oudep.py --models m --out out/diffical-models-0.1.0.oudep
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="v0.1.576-diffical"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          gh release delete "$TAG" --repo "${{ github.repository }}" --yes 2>/dev/null || true
+          gh release create "$TAG" out/* --repo "${{ github.repository }}" \
+            --title "OpenUtau Diffical ($TAG)" \
+            --notes "OpenUtau 0.1.576 + Diffical engine (Rust) + models. Windows/Linux zip, macOS app zip. Weights: CC BY-NC-SA 4.0; code Apache-2.0."
