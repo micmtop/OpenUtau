@@ -112,6 +112,33 @@ jobs:
           fi
           ls -lh dist
 
+      - name: Verify bundle
+        shell: bash
+        run: |
+          set -e
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            Z=dist/OpenUtau-Diffical-${{ matrix.name }}.zip
+            unzip -l "$Z" | grep -q "OpenUtau.app/Contents/MacOS/OpenUtau"
+            unzip -l "$Z" | grep -q "Resources/Diffical/backend/diffical-backend"
+            unzip -l "$Z" | grep -q "Resources/Diffical/models/assembler.onnx"
+            unzip -l "$Z" | grep -q "Resources/Diffical/models/vocoder.onnx"
+            unzip -l "$Z" | grep -q "Resources/Diffical/models/hnsep.onnx"
+            unzip -l "$Z" | grep -q "Resources/Diffical/config.json"
+          elif [ "${{ matrix.os }}" = "windows-latest" ]; then
+            Z=dist/OpenUtau-Diffical-${{ matrix.name }}.zip
+            7z l "$Z" | grep -q "OpenUtau.exe"
+            7z l "$Z" | grep -q "diffical-backend.exe"
+            7z l "$Z" | grep -q "assembler.onnx"
+            7z l "$Z" | grep -q "config.json"
+          else
+            T=dist/OpenUtau-Diffical-${{ matrix.name }}.tar.gz
+            tar -tzf "$T" | grep -q "./OpenUtau"
+            tar -tzf "$T" | grep -q "./Diffical/backend/diffical-backend"
+            tar -tzf "$T" | grep -q "./Diffical/models/hnsep.onnx"
+            tar -tzf "$T" | grep -q "./Diffical/config.json"
+          fi
+          echo "bundle verified"
+
       - uses: actions/upload-artifact@v4
         with:
           name: OpenUtau-Diffical-${{ matrix.name }}
