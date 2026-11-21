@@ -76,7 +76,9 @@ jobs:
         shell: bash
         run: |
           set -e
-          BIN=$(find engine/rust/target/release -maxdepth 1 -name 'diffical-cli*' | head -1)
+          BIN=$(find engine/rust/target/release -maxdepth 1 -type f \( -name 'diffical-cli' -o -name 'diffical-cli.exe' \) | head -1)
+          echo "engine binary: $BIN"
+          file "$BIN" || true
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             ROOT=out/OpenUtau.app/Contents/Resources/Diffical
             mkdir -p "$ROOT/backend" "$ROOT/models"
