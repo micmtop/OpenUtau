@@ -116,26 +116,27 @@ jobs:
         shell: bash
         run: |
           set -e
+          LIST=/tmp/bundle-list.txt
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            Z=dist/OpenUtau-Diffical-${{ matrix.name }}.zip
-            unzip -l "$Z" | grep -q "OpenUtau.app/Contents/MacOS/OpenUtau"
-            unzip -l "$Z" | grep -q "Resources/Diffical/backend/diffical-backend"
-            unzip -l "$Z" | grep -q "Resources/Diffical/models/assembler.onnx"
-            unzip -l "$Z" | grep -q "Resources/Diffical/models/vocoder.onnx"
-            unzip -l "$Z" | grep -q "Resources/Diffical/models/hnsep.onnx"
-            unzip -l "$Z" | grep -q "Resources/Diffical/config.json"
+            unzip -l dist/OpenUtau-Diffical-${{ matrix.name }}.zip > "$LIST"
+            grep -q "OpenUtau.app/Contents/MacOS/OpenUtau" "$LIST"
+            grep -q "Resources/Diffical/backend/diffical-backend" "$LIST"
+            grep -q "Resources/Diffical/models/assembler.onnx" "$LIST"
+            grep -q "Resources/Diffical/models/vocoder.onnx" "$LIST"
+            grep -q "Resources/Diffical/models/hnsep.onnx" "$LIST"
+            grep -q "Resources/Diffical/config.json" "$LIST"
           elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            Z=dist/OpenUtau-Diffical-${{ matrix.name }}.zip
-            7z l "$Z" | grep -q "OpenUtau.exe"
-            7z l "$Z" | grep -q "diffical-backend.exe"
-            7z l "$Z" | grep -q "assembler.onnx"
-            7z l "$Z" | grep -q "config.json"
+            7z l dist/OpenUtau-Diffical-${{ matrix.name }}.zip > "$LIST"
+            grep -q "OpenUtau.exe" "$LIST"
+            grep -q "diffical-backend.exe" "$LIST"
+            grep -q "assembler.onnx" "$LIST"
+            grep -q "config.json" "$LIST"
           else
-            T=dist/OpenUtau-Diffical-${{ matrix.name }}.tar.gz
-            tar -tzf "$T" | grep -q "./OpenUtau"
-            tar -tzf "$T" | grep -q "./Diffical/backend/diffical-backend"
-            tar -tzf "$T" | grep -q "./Diffical/models/hnsep.onnx"
-            tar -tzf "$T" | grep -q "./Diffical/config.json"
+            tar -tzf dist/OpenUtau-Diffical-${{ matrix.name }}.tar.gz > "$LIST"
+            grep -q "./OpenUtau" "$LIST"
+            grep -q "./Diffical/backend/diffical-backend" "$LIST"
+            grep -q "./Diffical/models/hnsep.onnx" "$LIST"
+            grep -q "./Diffical/config.json" "$LIST"
           fi
           echo "bundle verified"
 
