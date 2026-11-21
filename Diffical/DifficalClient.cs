@@ -167,7 +167,10 @@ namespace OpenUtau.Core.Diffical {
 
         string LastBackendError() {
             string tail = stderrTail.ToString().Trim();
-            return string.IsNullOrEmpty(tail) ? "(no backend output)" : tail;
+            string exit = serverProcess == null
+                ? "process=null"
+                : $"exited={serverProcess.HasExited} exitCode={(serverProcess.HasExited ? serverProcess.ExitCode : (int?)null)}";
+            return $"({exit}; stderr={(string.IsNullOrEmpty(tail) ? "(none)" : tail)})";
         }
 
         async Task<bool> IsServerHealthy(CancellationToken token) {
