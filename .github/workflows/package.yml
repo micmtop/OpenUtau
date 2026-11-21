@@ -95,7 +95,7 @@ jobs:
           }
           JSON
           curl -fL --retry 3 -o "$ROOT/models/assembler.onnx" https://github.com/micmtop/diffical/releases/download/weights-v1/pointer_fix_single.onnx
-          curl -fL --retry 3 -o "$ROOT/models/vocoder.onnx" "https://hf-mirror.com/openvpi/pc-nsf-hifigan/resolve/main/pc_nsf_hifigan_44.1k_hop512_128bin_2025.02/model.onnx"
+          curl -fL --retry 3 -o "$ROOT/models/vocoder.onnx" "https://github.com/micmtop/diffical/releases/download/weights-v1/model.onnx"
           curl -fL --retry 3 -o "$ROOT/models/hnsep.onnx" https://github.com/micmtop/diffical/releases/download/weights-v1/hnsep.onnx || true
 
       - name: Zip
