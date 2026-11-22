@@ -31,4 +31,19 @@ s = s.replace('''                    var task = phrase.renderer.Render(phrase, p
                         break;
                     }''')
 p.write_text(s)
+
+# 渲染被取消（用户在渲染途中编辑/播放）是正常流程，不应弹“渲染失败”。
+p = root / "OpenUtau.Core/Render/RenderEngine.cs"
+s = p.read_text()
+s = s.replace("""            if (wait) {
+                task.Wait();
+            }""", """            if (wait) {
+                try {
+                    task.Wait();
+                } catch (Exception ex) when (ex is OperationCanceledException ||
+                        ex is AggregateException agg && agg.InnerExceptions.All(e => e is OperationCanceledException)) {
+                    Serilog.Log.Information("render mixdown cancelled");
+                }
+            }""")
+p.write_text(s)
 print("patched", root)

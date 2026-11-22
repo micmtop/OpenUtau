@@ -241,6 +241,10 @@ namespace OpenUtau.Core.Diffical {
                 new UExpressionDescriptor("Pitch AM (A)", "DA", -100, 100, 0) {
                     type = UExpressionType.Curve,
                 },
+                // 乐句级慢速人性化起伏：全局数值 + 可按音符微调，经 flag "Hu" 传给引擎
+                new UExpressionDescriptor("Humanization", "HUM", 0, 100, 0, "Hu") {
+                    type = UExpressionType.Numerical,
+                },
             };
         }
 
