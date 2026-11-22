@@ -35,7 +35,7 @@ namespace OpenUtau.Core.Diffical {
         /// 渲染缓存版本。后端（Python）渲染逻辑更新时递增，
         /// 使旧缓存失效——否则 phrase.hash 不变，用户永远听到旧音频。
         /// </summary>
-        const string CacheVersion = "20261121_rust_engine_v1"; // amplitude-faithful coherence handover + periodic-vowel loudness; keep old caches
+        const string CacheVersion = "20261122_hum_flag"; // HUMANIZATION flag path + V3 geometry // amplitude-faithful coherence handover + periodic-vowel loudness; keep old caches
 
         static readonly HashSet<string> supportedExp = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
             Format.Ustx.DYN,    // 力度
