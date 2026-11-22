@@ -228,6 +228,8 @@ namespace OpenUtau.Core.Diffical {
                 Path.Combine(PathManager.Inst.CachePath, "Diffical", "Numba");
             Directory.CreateDirectory(numbaCache);
             psi.EnvironmentVariables["NUMBA_CACHE_DIR"] = numbaCache;
+        // 装配永远走模型：不依赖外部环境变量，也不允许客户端降级到顺序拼接
+        psi.EnvironmentVariables["DIFFICAL_ENGINE"] = "model";
             psi.EnvironmentVariables["KMP_DUPLICATE_LIB_OK"] = "TRUE";
 
             try {
